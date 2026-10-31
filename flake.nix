@@ -26,17 +26,17 @@
             vars = import ./vars.nix;
             # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
             handmade = import (common.path + /handmade.nix) { inherit (nixpkgs-unstable) lib; inherit vars; com = common.path; cur = ./.; };
-            mkLib = (pkgs: pkgs.lib.extend (final: prev: home-manager.lib // handmade.myLibs (common.path + /lib) final));
+            mkLib = pkgs: pkgs.lib.extend (final: prev: home-manager.lib // handmade.myLibs (common.path + /lib) final);
             lib = mkLib nixpkgs-unstable;
 
-            pkgsConfig = (arch: {
-                hostPlatform = arch;
+            pkgsConfig = arch: {
+                localSystem = arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
                 config = {
                     allowUnfree = true;
                 };
-            });
+            };
             # every overlay lives here, so pkgs.stable gets them too (lazy: unused packages cost nothing)
-            mkPkgsOverlays = (pkgs: arch:
+            mkPkgsOverlays = pkgs: arch:
                 (import pkgs (pkgsConfig arch)).appendOverlays [
                     (final: prev: { lib = mkLib pkgs; }) # Normal lib everywhere
                     (handmade.myPkgs (common.path + /pkgs))
@@ -45,11 +45,10 @@
                         # the same nix the determinate module installs; otherwise comma warns about eval-cores/lazy-trees
                         comma = prev.comma.override { nix = inputs.determinate.inputs.nix.packages.${arch}.default; };
                     })
-                ]
-            );
-            mkPkgs = (arch: (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [ (final: prev: { stable = mkPkgsOverlays nixpkgs-stable arch; }) ]);
+                ];
+            mkPkgs = arch: (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [ (final: prev: { stable = mkPkgsOverlays nixpkgs-stable arch; }) ];
 
-            mkHome = (vars: home-manager.lib.homeManagerConfiguration {
+            mkHome = vars: home-manager.lib.homeManagerConfiguration {
                 pkgs = mkPkgs vars.arch;
                 extraSpecialArgs = {
                     inherit lib vars;
@@ -61,7 +60,7 @@
                     # inputs.niri.homeModules.niri
                     ./hm/${vars.user}/_home.nix # _ hides it from get
                 ];
-            });
+            };
         in {
             nixosConfigurations.${vars.host} = nixpkgs-unstable.lib.nixosSystem {
                 pkgs = mkPkgs vars.arch;
@@ -78,7 +77,7 @@
                 ];
             };
             homeConfigurations = lib.mergeAttrsList (builtins.map (user: {
-                "${user}@${vars.host}" = (mkHome (vars // { inherit user; }));
+                "${user}@${vars.host}" = mkHome (vars // { inherit user; });
             }) ([ "root" ] ++ vars.users));
         };
 }
