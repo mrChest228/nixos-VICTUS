@@ -27,7 +27,6 @@
             # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
             handmade = import (common.path + /handmade.nix) { inherit (nixpkgs-unstable) lib; inherit vars; com = common.path; cur = ./.; };
             mkLib = pkgs: pkgs.lib.extend (final: prev: home-manager.lib // handmade.myLibs (common.path + /lib) final prev);
-            lib = mkLib nixpkgs-unstable;
 
             pkgsConfig = arch: {
                 localSystem = arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
@@ -48,11 +47,14 @@
                 ];
             mkPkgs = arch: (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [ (final: prev: { stable = mkPkgsOverlays nixpkgs-stable arch; }) ];
 
-            mkHome = vars: home-manager.lib.homeManagerConfiguration {
+            mkHome = vars: let
                 pkgs = mkPkgs vars.arch;
+            in home-manager.lib.homeManagerConfiguration {
+                inherit pkgs;
                 extraSpecialArgs = {
-                    inherit lib vars;
-                    inherit (lib) get;
+                    inherit vars;
+                    inherit (pkgs) lib;
+                    inherit (pkgs.lib) get;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };
@@ -62,11 +64,14 @@
                 ];
             };
         in {
-            nixosConfigurations.${vars.host} = nixpkgs-unstable.lib.nixosSystem {
+            nixosConfigurations.${vars.host} = let
                 pkgs = mkPkgs vars.arch;
+            in nixpkgs-unstable.lib.nixosSystem {
+                inherit pkgs;
                 specialArgs = {
-                    inherit lib vars;
-                    inherit (lib) get;
+                    inherit vars;
+                    inherit (pkgs) lib;
+                    inherit (pkgs.lib) get;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };
@@ -76,7 +81,7 @@
                     ./sys/_config.nix         # _ hides it from get
                 ];
             };
-            homeConfigurations = lib.mergeAttrsList (builtins.map (user: {
+            homeConfigurations = nixpkgs-unstable.lib.mergeAttrsList (builtins.map (user: {
                 "${user}@${vars.host}" = mkHome (vars // { inherit user; });
             }) ([ "root" ] ++ vars.users));
         };
