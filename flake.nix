@@ -25,8 +25,15 @@
         let
             vars = import ./vars.nix;
             # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
-            handmade = import (common.path + /handmade.nix) { inherit (nixpkgs-unstable) lib; inherit vars; com = common.path; cur = ./.; };
-            mkLib = nixpkgs: nixpkgs.lib.extend (final: prev: handmade.myLibs (common.path + /lib) final prev);
+            handmade = import (common.path + /handmade.nix) {
+                inherit (nixpkgs-unstable) lib;
+                inherit vars;
+                com = common.path;
+                cur = ./.;
+            };
+            mkLib = nixpkgs: nixpkgs.lib.extend (final: prev:
+                handmade.myLibs (common.path + /lib) final prev
+            );
 
             pkgsConfig = {
                 localSystem = vars.arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
