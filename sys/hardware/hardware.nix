@@ -1,5 +1,5 @@
-{ config, lib, pkgs, vars, com, cur, get, ... }: {
-    imports = get [
+{ config, lib, pkgs, vars, com, cur, ... }: {
+    imports = lib.get [
         (com + /sys/hardware/amd-integrated.nix)
         (com + /sys/hardware/nvidia-prime.nix)
         (com + /sys/hardware/power.nix)

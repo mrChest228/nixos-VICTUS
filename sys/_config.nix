@@ -1,5 +1,5 @@
-{ config, lib, pkgs, vars, com, cur, get, ... }: {
-    imports = get [
+{ config, lib, pkgs, vars, com, cur, ... }: {
+    imports = lib.get [
         (com + /sys/options/...)
         (com + /sys)
         (com + /sys/config)

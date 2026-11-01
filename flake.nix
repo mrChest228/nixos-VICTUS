@@ -54,7 +54,6 @@
                 extraSpecialArgs = {
                     inherit vars;
                     inherit (pkgs) lib;
-                    inherit (pkgs.lib) get;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };
@@ -71,7 +70,6 @@
                 specialArgs = {
                     inherit vars;
                     inherit (pkgs) lib;
-                    inherit (pkgs.lib) get;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };

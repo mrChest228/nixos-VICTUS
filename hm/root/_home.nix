@@ -1,5 +1,5 @@
-{ config, lib, pkgs, vars, com, cur, get, ... }: {
-    imports = get [
+{ config, lib, pkgs, vars, com, cur, ... }: {
+    imports = lib.get [
         (com + /hm/root) # root imports only hm/root: modules it evaluates must stay root-owned
         ./.              # host/hm/root
     ];

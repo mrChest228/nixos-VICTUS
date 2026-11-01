@@ -1,6 +1,6 @@
-{ config, lib, pkgs, vars, com, cur, get, ... }:
+{ config, lib, pkgs, vars, com, cur, ... }:
 {
-    imports = get [
+    imports = lib.get [
         (com + /hm/packages+fonts.nix) # Import the default HM packages (like fonts, etc.)
     ];
     home.packages = with pkgs; [

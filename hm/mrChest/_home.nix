@@ -1,5 +1,5 @@
-{ config, lib, pkgs, vars, com, cur, get, ... }: {
-    imports = get [
+{ config, lib, pkgs, vars, com, cur, ... }: {
+    imports = lib.get [
         (com + /hm)
         (com + /hm/root/nushell.nix) # shared shell setup moved to hm/root, users may import it (reading root's files is safe)
         (com + /hm/root/git.nix)
