@@ -46,14 +46,13 @@
                     })
                 ];
             mkPkgs = arch: (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [ (final: prev: { stable = mkPkgsOverlays nixpkgs-stable arch; }) ];
+            pkgs = mkPkgs vars.arch;
 
-            mkHome = vars: let
-                pkgs = mkPkgs vars.arch;
-            in home-manager.lib.homeManagerConfiguration {
+            # HM builds its modules' lib from pkgs.lib itself, so they see my functions without specialArgs
+            mkHome = vars: pkgs.lib.homeManagerConfiguration {
                 inherit pkgs;
                 extraSpecialArgs = {
                     inherit vars;
-                    inherit (pkgs) lib;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };
@@ -63,13 +62,11 @@
                 ];
             };
         in {
-            nixosConfigurations.${vars.host} = let
-                pkgs = mkPkgs vars.arch;
-            in nixpkgs-unstable.lib.nixosSystem {
+            nixosConfigurations.${vars.host} = pkgs.lib.nixosSystem {
                 inherit pkgs;
+                lib = pkgs.lib; # otherwise the modules' lib is nixpkgs' bare one, without my functions
                 specialArgs = {
                     inherit vars;
-                    inherit (pkgs) lib;
                     com = common.path; # path to the common flake
                     cur = ./.;         # path to this flake
                 };
@@ -79,7 +76,7 @@
                     ./sys/_config.nix         # _ hides it from get
                 ];
             };
-            homeConfigurations = nixpkgs-unstable.lib.mergeAttrsList (builtins.map (user: {
+            homeConfigurations = pkgs.lib.mergeAttrsList (builtins.map (user: {
                 "${user}@${vars.host}" = mkHome (vars // { inherit user; });
             }) ([ "root" ] ++ vars.users));
         };
