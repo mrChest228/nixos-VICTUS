@@ -24,16 +24,16 @@
     outputs = inputs@{ self, nixpkgs-stable, nixpkgs-unstable, home-manager, common, ... }:
         let
             vars = import ./vars.nix;
-            # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
+            # my lib functions and packages (common/lib, common/pkgs, ./lib, ./pkgs; see common/handmade.nix)
             handmade = import (common.path + /handmade.nix) {
                 inherit (nixpkgs-unstable) lib;
                 inherit vars;
                 com = common.path;
                 cur = ./.;
             };
-            mkLib = nixpkgs: nixpkgs.lib.extend (final: prev:
-                handmade.myLibs (common.path + /lib) final prev
-            );
+            mkLib = nixpkgs: (nixpkgs.lib
+                .extend (final: prev: handmade.myLibs (common.path + /lib) final prev))
+                .extend (final: prev: handmade.myLibs ./lib final prev); # a host function replaces a common one, a host group extends it
 
             pkgsConfig = {
                 localSystem = vars.arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
