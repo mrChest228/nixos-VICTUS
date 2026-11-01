@@ -26,29 +26,28 @@
             vars = import ./vars.nix;
             # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
             handmade = import (common.path + /handmade.nix) { inherit (nixpkgs-unstable) lib; inherit vars; com = common.path; cur = ./.; };
-            # only my functions: a `// home-manager.lib` here would freeze lib.hm to this fixpoint, and HM's own lib.extend
-            # (its docs patch lib.types.either) could no longer rebuild it
-            mkLib = pkgs: pkgs.lib.extend (final: prev: handmade.myLibs (common.path + /lib) final prev);
+            mkLib = nixpkgs: nixpkgs.lib.extend (final: prev: handmade.myLibs (common.path + /lib) final prev);
 
-            pkgsConfig = arch: {
-                localSystem = arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
+            pkgsConfig = {
+                localSystem = vars.arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
                 config = {
                     allowUnfree = true;
                 };
             };
             # every overlay lives here, so pkgs.stable gets them too (lazy: unused packages cost nothing)
-            mkPkgsOverlays = pkgs: arch:
-                (import pkgs (pkgsConfig arch)).appendOverlays [
-                    (final: prev: { lib = mkLib pkgs; }) # Normal lib everywhere
+            mkPkgsOverlays = nixpkgs:
+                (import nixpkgs pkgsConfig).appendOverlays [
+                    (final: prev: { lib = mkLib nixpkgs; }) # Normal lib everywhere
                     (handmade.myPkgs (common.path + /pkgs))
                     (handmade.myPkgs ./pkgs) # a host package replaces a common one, a host group extends it
                     (final: prev: {
                         # the same nix the determinate module installs; otherwise comma warns about eval-cores/lazy-trees
-                        comma = prev.comma.override { nix = inputs.determinate.inputs.nix.packages.${arch}.default; };
+                        comma = prev.comma.override { nix = inputs.determinate.inputs.nix.packages.${vars.arch}.default; };
                     })
                 ];
-            mkPkgs = arch: (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [ (final: prev: { stable = mkPkgsOverlays nixpkgs-stable arch; }) ];
-            pkgs = mkPkgs vars.arch;
+            pkgs = (mkPkgsOverlays nixpkgs-unstable).appendOverlays [
+                (final: prev: { stable = mkPkgsOverlays nixpkgs-stable; })
+            ];
 
             # HM builds its modules' lib from pkgs.lib itself, so they see my functions without specialArgs
             mkHome = vars: home-manager.lib.homeManagerConfiguration {
@@ -66,7 +65,7 @@
         in {
             nixosConfigurations.${vars.host} = pkgs.lib.nixosSystem {
                 inherit pkgs;
-                lib = pkgs.lib; # otherwise the modules' lib is nixpkgs' bare one, without my functions
+                inherit (pkgs) lib;
                 specialArgs = {
                     inherit vars;
                     com = common.path; # path to the common flake
