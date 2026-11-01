@@ -26,7 +26,9 @@
             vars = import ./vars.nix;
             # my lib modules and packages, shared by every host (common/lib/*.nix, common/pkgs, ./pkgs)
             handmade = import (common.path + /handmade.nix) { inherit (nixpkgs-unstable) lib; inherit vars; com = common.path; cur = ./.; };
-            mkLib = pkgs: pkgs.lib.extend (final: prev: home-manager.lib // handmade.myLibs (common.path + /lib) final prev);
+            # only my functions: a `// home-manager.lib` here would freeze lib.hm to this fixpoint, and HM's own lib.extend
+            # (its docs patch lib.types.either) could no longer rebuild it
+            mkLib = pkgs: pkgs.lib.extend (final: prev: handmade.myLibs (common.path + /lib) final prev);
 
             pkgsConfig = arch: {
                 localSystem = arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
@@ -49,7 +51,7 @@
             pkgs = mkPkgs vars.arch;
 
             # HM builds its modules' lib from pkgs.lib itself, so they see my functions without specialArgs
-            mkHome = vars: pkgs.lib.homeManagerConfiguration {
+            mkHome = vars: home-manager.lib.homeManagerConfiguration {
                 inherit pkgs;
                 extraSpecialArgs = {
                     inherit vars;
