@@ -2,11 +2,11 @@
   "nodes": {
     "common": {
       "locked": {
-        "lastModified": 1794051463,
-        "narHash": "sha256-VoNwhVAgK7suVGijfv4RIHZxw+ZXsgvmDmRei4ere6g=",
+        "lastModified": 1794055838,
+        "narHash": "sha256-8P9GVR6PkepuqH8C6IW0pYVvkXkYWYP5Nfrr40I2Qes=",
         "ref": "refs/heads/devin/1791157003-config-scripts",
-        "rev": "42c5f2eae62c7b73e8357d29a49ba034afd8fcb2",
-        "revCount": 198,
+        "rev": "8fbebc12c7560f32760cd87946d3eb0f622ba54b",
+        "revCount": 199,
         "type": "git",
         "url": "file:///etc/nixos/common"
       },
