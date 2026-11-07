@@ -6,8 +6,11 @@
             url = "github:nix-community/home-manager";
             inputs.nixpkgs.follows = "nixpkgs-unstable";
         };
-        # Fast nix-eval
-        determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
+        # Fast nix eval: evaluates locally, builds through the usual nix-daemon
+        iets = {
+            url = "github:numtide/iets";
+            inputs.nixpkgs.follows = "nixpkgs-unstable";
+        };
         # Niri
         # niri = {
         #     url = "github:sodiboo/niri-flake";
@@ -47,10 +50,6 @@
                     (final: prev: { lib = mkLib nixpkgs; }) # Normal lib everywhere
                     (handmade.myPkgs (common.path + /pkgs))
                     (handmade.myPkgs ./pkgs) # a host package replaces a common one, a host group extends it
-                    (final: prev: {
-                        # the same nix the determinate module installs; otherwise comma warns about eval-cores/lazy-trees
-                        comma = prev.comma.override { nix = inputs.determinate.inputs.nix.packages.${vars.arch}.default; };
-                    })
                 ];
             pkgs = (mkPkgsOverlays nixpkgs-unstable).appendOverlays [
                 (final: prev: { stable = mkPkgsOverlays nixpkgs-stable; })
@@ -79,7 +78,7 @@
                     cur = ./.;         # path to this flake
                 };
                 modules = [
-                    inputs.determinate.nixosModules.default
+                    inputs.iets.nixosModules.default
                     inputs.nix-index-database.nixosModules.nix-index
                     ./sys/_config.nix         # _ hides it from get
                 ];
