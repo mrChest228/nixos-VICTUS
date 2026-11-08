@@ -1,6 +1,14 @@
 { config, lib, pkgs, vars, com, cur, ... }: {
     fileSystems = {
         # Partitions
+        # TODO (server, at the next install): bcachefs subvolumes. A snapshot is per subvolume and leaves nested
+        # subvolumes out (they are the way to exclude a part of the tree); a hard link can't cross one, so /nix is one
+        # subvolume whole (store + /nix/var). cp copies with reflink by default (coreutils and nushell), no setting needed.
+        #   /            snapshot before update
+        #   /nix         no snapshots: rebuilt from the config
+        #   /home/<u>    one per user: snapshot one user alone
+        #   ~/.cache     out of the home snapshots; ~/.config its own if snapshots of it alone are wanted
+        #   /var/log /tmp  out of the / snapshots
         "/" = {
             device = "/dev/disk/by-partlabel/${vars.host}-root";
             fsType = "bcachefs";
