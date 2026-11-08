@@ -1,9 +1,10 @@
 { config, lib, pkgs, vars, com, cur, ... }: {
     fileSystems = {
         # Partitions
-        # TODO (server, at the next install): bcachefs subvolumes. A snapshot is per subvolume and leaves nested
-        # subvolumes out (they are the way to exclude a part of the tree); a hard link can't cross one, so /nix is one
-        # subvolume whole (store + /nix/var). cp copies with reflink by default (coreutils and nushell), no setting needed.
+        # TODO (server, at the install): bcachefs subvolumes. Nothing to declare here: a subvolume is a directory inside "/",
+        # made once with `bcachefs subvolume create <path>` on an empty path (an existing dir: create next to it, `cp -a --reflink=always`, swap).
+        # A snapshot is per subvolume and leaves nested subvolumes out (that's how to exclude a part); a hard link can't cross
+        # a subvolume, so /nix is one subvolume whole (store + /nix/var). cp copies with reflink by default (coreutils, nushell).
         #   /            snapshot before update
         #   /nix         no snapshots: rebuilt from the config
         #   /home/<u>    one per user: snapshot one user alone
