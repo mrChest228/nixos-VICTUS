@@ -6,15 +6,17 @@
             url = "github:nix-community/home-manager";
             inputs.nixpkgs.follows = "nixpkgs-unstable";
         };
-        # Fast nix-eval
-        determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
+        # Fast nix eval: evaluates locally, builds through the usual nix-daemon
+        iets = {
+            url = "github:numtide/iets";
+            inputs.nixpkgs.follows = "nixpkgs-unstable";
+        };
         # Niri
         # niri = {
         #     url = "github:sodiboo/niri-flake";
         #     inputs.nixpkgs.follows = "nixpkgs-unstable";
         # };
         # Libs
-        import-tree.url = "github:vic/import-tree";
         nix-index-database = { # Needs for nix-index and comma fast search/index
             url = "github:nix-community/nix-index-database";
             inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -24,59 +26,65 @@
     };
     outputs = inputs@{ self, nixpkgs-stable, nixpkgs-unstable, home-manager, common, ... }:
         let
-            mkLib = (pkgs: pkgs.lib.extend (final: prev: (home-manager.lib // {
-                importTree = inputs.import-tree;
-                importTopLevel = dir: (inputs.import-tree.match "^/[^/]+\\.nix$" dir);
-            })));
-            lib = mkLib nixpkgs-unstable;
-
             vars = import ./vars.nix;
+            # my lib functions and packages (common/lib, common/pkgs, ./lib, ./pkgs; see common/handmade.nix)
+            handmade = import (common.path + /handmade.nix) {
+                inherit (nixpkgs-unstable) lib;
+                inherit vars;
+                com = common.path;
+                cur = ./.;
+            };
+            mkLib = nixpkgs: (nixpkgs.lib
+                .extend (final: prev: handmade.myLibs (common.path + /lib) final prev))
+                .extend (final: prev: handmade.myLibs ./lib final prev); # a host function replaces a common one, a host group extends it
 
-            pkgsConfig = (arch: {
-                system = arch;
-                hostPlatform = arch;
+            pkgsConfig = {
+                localSystem = vars.arch; # nixpkgs has no hostPlatform argument; without localSystem it asks builtins.currentSystem (impure only)
                 config = {
                     allowUnfree = true;
                 };
-            });
-            mkPkgsOverlays = (pkgs: arch:
-                (import pkgs (pkgsConfig arch)).appendOverlays [
-                    (final: prev: { lib = mkLib pkgs; }) # Normal lib everywhere
-                    
-                ]
-            );
-            mkPkgs = (arch:
-                (mkPkgsOverlays nixpkgs-unstable arch).appendOverlays [(final: prev: {
-                    stable = (mkPkgsOverlays nixpkgs-stable arch);
-                })]
-            );
+            };
+            # every overlay lives here, so pkgs.stable gets them too (lazy: unused packages cost nothing)
+            mkPkgsOverlays = nixpkgs:
+                (import nixpkgs pkgsConfig).appendOverlays [
+                    (final: prev: { lib = mkLib nixpkgs; }) # Normal lib everywhere
+                    (handmade.myPkgs (common.path + /pkgs))
+                    (handmade.myPkgs ./pkgs) # a host package replaces a common one, a host group extends it
+                ];
+            pkgs = (mkPkgsOverlays nixpkgs-unstable).appendOverlays [
+                (final: prev: { stable = mkPkgsOverlays nixpkgs-stable; })
+            ];
 
-            mkHome = (vars: home-manager.lib.homeManagerConfiguration {
-                pkgs = mkPkgs vars.arch;
+            # HM builds its modules' lib from pkgs.lib itself, so they see my functions without specialArgs
+            mkHome = vars: home-manager.lib.homeManagerConfiguration {
+                inherit pkgs;
                 extraSpecialArgs = {
-                    inherit lib vars self; # self is a path to the flake
-                    com = common.hm;
+                    inherit vars;
+                    com = common.path; # path to the common flake
+                    cur = ./.;         # path to this flake
                 };
                 modules = [
                     # inputs.niri.homeModules.niri
-                    ./hm/${vars.user}/_home.nix # _ needs to protect the import with import-tree
-                ];
-            });
-        in {
-            nixosConfigurations.${vars.host} = nixpkgs-unstable.lib.nixosSystem {
-                pkgs = mkPkgs vars.arch;
-                specialArgs = {
-                    inherit lib vars self; # self is a path to the flake
-                    com = common.sys;
-                };
-                modules = [
-                    inputs.determinate.nixosModules.default
-                    inputs.nix-index-database.nixosModules.nix-index
-                    ./sys/_config.nix         # _ needs to protect the import with import-tree
+                    ./hm/${vars.user}/_home.nix # _ hides it from get
                 ];
             };
-            homeConfigurations = lib.mergeAttrsList (builtins.map (user: {
-                "${user}@${vars.host}" = (mkHome (vars // { inherit user; }));
-            }) vars.users);
+        in {
+            nixosConfigurations.${vars.host} = pkgs.lib.nixosSystem {
+                inherit pkgs;
+                inherit (pkgs) lib;
+                specialArgs = {
+                    inherit vars;
+                    com = common.path; # path to the common flake
+                    cur = ./.;         # path to this flake
+                };
+                modules = [
+                    inputs.iets.nixosModules.default
+                    inputs.nix-index-database.nixosModules.nix-index
+                    ./sys/_config.nix         # _ hides it from get
+                ];
+            };
+            homeConfigurations = pkgs.lib.mergeAttrsList (builtins.map (user: {
+                "${user}@${vars.host}" = mkHome (vars // { inherit user; });
+            }) ([ "root" ] ++ vars.users));
         };
 }
